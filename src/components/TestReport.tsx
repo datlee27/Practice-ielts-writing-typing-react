@@ -1,3 +1,4 @@
+import React from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { Home, Download, Share2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState } from 'react';
@@ -51,7 +52,7 @@ export function TestReport() {
     setExpandedSection(expandedSection === section ? null : section);
   };
 
-  const AccordionSection = ({ id, title, children }: { id: string; title: string; children: React.ReactNode }) => (
+  const AccordionSection: React.FC<{ id: string; title: string; children: React.ReactNode }> = ({ id, title, children }) => (
     <div className="border border-slate-700 rounded-lg overflow-hidden">
       <button
         onClick={() => toggleSection(id)}
