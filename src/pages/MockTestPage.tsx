@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { Home, Clock } from 'lucide-react';
-import { Button } from './ui/button';
+import { Button } from '../components/ui/button';
 
 const mockPrompt = {
   task1: "The chart below shows the percentage of households in owned and rented accommodation in England and Wales between 1918 and 2011. Summarise the information by selecting and reporting the main features, and make comparisons where relevant.",
   task2: "Some people believe that technology has made our lives more complicated, while others argue that it has made things easier. Discuss both views and give your own opinion. Give reasons for your answer and include any relevant examples from your own knowledge or experience."
 };
 
-export function MockTest() {
+export function MockTestPage() {
   const navigate = useNavigate();
   const [essay, setEssay] = useState('');
   const [timeLeft, setTimeLeft] = useState(60 * 60); // 60 minutes in seconds
@@ -66,9 +66,9 @@ export function MockTest() {
             <Home className="w-5 h-5" />
             <span>Home</span>
           </button>
-          
+
           <h1 className="text-2xl">IELTS Writing Mock Test</h1>
-          
+
           <div className={`flex items-center gap-2 text-xl font-mono ${getTimeColor()}`}>
             <Clock className="w-5 h-5" />
             <span>{formatTime(timeLeft)}</span>
