@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { RotateCcw, Upload, BookOpen, Image } from 'lucide-react';
-import { VirtualKeyboard } from './VirtualKeyboard';
-import { Button } from './ui/button';
-import { ImageUploadModal } from './ImageUploadModal';
+import { VirtualKeyboard } from '../components/VirtualKeyboard';
+import { Button } from '../components/ui/button';
+import { ImageUploadModal } from '../components/ImageUploadModal';
 
 const sampleTexts = {
   10: "Some people believe that technology has made our lives more complicated while others argue",
@@ -14,7 +14,7 @@ const sampleTexts = {
 
 type PracticeMode = 'preset' | 'custom';
 
-export function TypingInterface() {
+export function PracticePage() {
   const navigate = useNavigate();
   const [mode, setMode] = useState<PracticeMode>('preset');
   const [userInput, setUserInput] = useState('');
@@ -57,15 +57,15 @@ export function TypingInterface() {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key.length === 1 || e.key === 'Backspace' || e.key === ' ') {
       e.preventDefault();
-      
+
       setLastPressedKey(e.key === ' ' ? 'Space' : e.key);
-      
+
       if (e.key === 'Backspace') {
         setUserInput(prev => prev.slice(0, -1));
       } else {
         const newInput = userInput + e.key;
         setUserInput(newInput);
-        
+
         if (!startTime && newInput.length === 1) {
           setStartTime(Date.now());
         }
@@ -112,7 +112,7 @@ export function TypingInterface() {
   const calculateAccuracy = () => {
     const typedWords = userInput.trim().split(' ').filter(w => w.length > 0);
     if (typedWords.length === 0) return 100;
-    
+
     let correctWords = 0;
     for (let i = 0; i < typedWords.length && i < words.length; i++) {
       if (typedWords[i] === words[i]) {
@@ -130,26 +130,26 @@ export function TypingInterface() {
   const renderWords = () => {
     const typedWords = userInput.trim().split(' ').filter(w => w.length > 0);
     const currentWordIndex = getCurrentWordIndex();
-    
+
     return words.map((word, index) => {
       const isCurrentWord = index === currentWordIndex;
       const isTyped = index < typedWords.length;
       const isCorrect = isTyped && typedWords[index] === word;
       const isWrong = isTyped && typedWords[index] !== word;
-      
+
       let wordClass = 'inline-block mr-3 transition-all duration-150 px-1 -mx-1 rounded ';
-      
+
       if (isCurrentWord) {
         wordClass += 'border-b-2 border-teal-400 ';
       }
-      
+
       if (isWrong) {
         wordClass += 'bg-red-500/10 ';
       }
-      
+
       const chars = word.split('').map((char, charIndex) => {
         let charClass = 'transition-all duration-100 ';
-        
+
         if (isTyped) {
           if (isCorrect) {
             charClass += 'text-teal-100';
@@ -168,14 +168,14 @@ export function TypingInterface() {
         } else {
           charClass += 'text-slate-600';
         }
-        
+
         return (
           <span key={charIndex} className={charClass}>
             {char}
           </span>
         );
       });
-      
+
       return (
         <span key={index} className={wordClass}>
           {chars}
@@ -239,8 +239,8 @@ export function TypingInterface() {
               <button
                 onClick={switchToPresetMode}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                  mode === 'preset' 
-                    ? 'bg-teal-600 text-white' 
+                  mode === 'preset'
+                    ? 'bg-teal-600 text-white'
                     : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
                 }`}
               >
@@ -250,8 +250,8 @@ export function TypingInterface() {
               <button
                 onClick={() => setShowUploadModal(true)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                  mode === 'custom' 
-                    ? 'bg-teal-600 text-white' 
+                  mode === 'custom'
+                    ? 'bg-teal-600 text-white'
                     : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
                 }`}
               >
@@ -259,7 +259,7 @@ export function TypingInterface() {
                 <span>Upload Bài Làm</span>
               </button>
             </div>
-            
+
             {/* Settings Bar - Only show for preset mode */}
             {mode === 'preset' && (
               <div className="flex flex-wrap items-center gap-3 text-sm">
@@ -381,7 +381,7 @@ export function TypingInterface() {
               <RotateCcw className="w-5 h-5" />
               <span>Reset</span>
             </button>
-            
+
             <div className="flex items-center gap-8 text-lg">
               <div className="flex items-center gap-2">
                 <span className="text-slate-500">WPM:</span>

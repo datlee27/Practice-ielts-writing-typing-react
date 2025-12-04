@@ -2,14 +2,14 @@ import React from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { Home, Download, Share2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState } from 'react';
-import { Button } from './ui/button';
+import { Button } from '../components/ui/button';
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 
-export function TestReport() {
+export function TestReportPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const stats = location.state || { wpm: 0, accuracy: 0, time: 0, completeness: 0 };
-  
+
   const [expandedSection, setExpandedSection] = useState<string | null>('overall');
 
   const calculateBandScore = () => {
@@ -85,9 +85,9 @@ export function TestReport() {
             <Home className="w-5 h-5" />
             <span>Home</span>
           </button>
-          
+
           <h1 className="text-2xl">Test Report</h1>
-          
+
           <div className="flex gap-3">
             <Button variant="outline" className="border-slate-700 text-slate-400 hover:bg-slate-800">
               <Share2 className="w-4 h-4 mr-2" />
@@ -139,7 +139,7 @@ export function TestReport() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
                   <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 12 }} />
                   <YAxis domain={[0, 9]} tick={{ fill: '#94a3b8' }} />
-                  <Tooltip 
+                  <Tooltip
                     contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #475569', borderRadius: '8px' }}
                     labelStyle={{ color: '#e2e8f0' }}
                   />
@@ -175,15 +175,15 @@ export function TestReport() {
           <div className="space-y-4">
             <AccordionSection id="overall" title="Overall Feedback">
               <p className="text-slate-300 leading-relaxed">
-                Your performance demonstrates a {bandScore >= 7.0 ? 'strong' : 'good'} command of English writing. 
-                You have effectively addressed the task requirements and maintained coherence throughout your response. 
+                Your performance demonstrates a {bandScore >= 7.0 ? 'strong' : 'good'} command of English writing.
+                You have effectively addressed the task requirements and maintained coherence throughout your response.
                 Continue to focus on expanding your vocabulary range and ensuring grammatical accuracy to achieve higher band scores.
               </p>
             </AccordionSection>
 
             <AccordionSection id="task-response" title="Task Response (7.5)">
               <p className="text-slate-300 leading-relaxed mb-4">
-                You have successfully addressed all parts of the task and presented a well-developed response with relevant, 
+                You have successfully addressed all parts of the task and presented a well-developed response with relevant,
                 extended ideas. Your position is clear throughout the essay.
               </p>
               <div className="bg-teal-950/30 border-l-4 border-teal-500 p-4 rounded-r">
@@ -195,7 +195,7 @@ export function TestReport() {
 
             <AccordionSection id="coherence" title="Coherence & Cohesion (8.0)">
               <p className="text-slate-300 leading-relaxed mb-4">
-                Your essay demonstrates excellent organization with clear progression throughout. 
+                Your essay demonstrates excellent organization with clear progression throughout.
                 Cohesive devices are used effectively without being mechanical.
               </p>
               <div className="bg-teal-950/30 border-l-4 border-teal-500 p-4 rounded-r">
@@ -207,7 +207,7 @@ export function TestReport() {
 
             <AccordionSection id="lexical" title="Lexical Resource (7.0)">
               <p className="text-slate-300 leading-relaxed mb-4">
-                You demonstrate a good range of vocabulary with some flexibility and precision. 
+                You demonstrate a good range of vocabulary with some flexibility and precision.
                 There are occasional errors in word choice and collocation.
               </p>
               <div className="bg-orange-950/30 border-l-4 border-orange-500 p-4 rounded-r">
@@ -219,7 +219,7 @@ export function TestReport() {
 
             <AccordionSection id="grammar" title="Grammatical Range & Accuracy (7.5)">
               <p className="text-slate-300 leading-relaxed mb-4">
-                You use a variety of complex structures with good control. 
+                You use a variety of complex structures with good control.
                 Most sentences are error-free with only occasional minor mistakes.
               </p>
               <div className="bg-teal-950/30 border-l-4 border-teal-500 p-4 rounded-r">
@@ -276,7 +276,7 @@ export function TestReport() {
                     </h4>
                     <div className="bg-slate-900/70 border border-slate-700 p-6 rounded-lg h-80 overflow-y-auto">
                       <p className="text-slate-400 leading-relaxed">
-                        <span className="text-teal-300">Some people believe</span> that technology has made our lives more complicated, 
+                        <span className="text-teal-300">Some people believe</span> that technology has made our lives more complicated,
                         <span className="bg-teal-500/20 px-1 rounded"> while others argue</span> that it has made things easier...
                         <span className="text-xs text-slate-500 ml-2 italic">(improved structure)</span>
                       </p>

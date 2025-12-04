@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { Home, FileText } from 'lucide-react';
-import { Button } from './ui/button';
+import { Button } from '../components/ui/button';
 
-export function CustomPromptInput() {
+export function CustomPromptPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const { typedText, wpm, accuracy, time, uploadedImage } = location.state || {};
-  
+
   const [prompt, setPrompt] = useState('');
   const [taskType, setTaskType] = useState<'task1' | 'task2'>('task2');
 
@@ -42,9 +42,9 @@ export function CustomPromptInput() {
             <Home className="w-5 h-5" />
             <span>Home</span>
           </button>
-          
+
           <h1 className="text-2xl">Nhập Đề Bài</h1>
-          
+
           <div className="w-20"></div>
         </div>
       </header>
