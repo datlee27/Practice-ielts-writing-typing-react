@@ -1,9 +1,16 @@
 import { useNavigate } from 'react-router';
-import { Keyboard, FileText, TrendingUp, Zap } from 'lucide-react';
+import { Keyboard, FileText, TrendingUp, Zap, LogOut, User } from 'lucide-react';
 import { Button } from '../components/ui/button';
+import { useAuth } from '../contexts/AuthContext';
 
 export function HomePage() {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <div className="min-h-screen bg-slate-900 text-white">
@@ -11,13 +18,20 @@ export function HomePage() {
       <header className="px-8 py-6 border-b border-slate-800">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="text-3xl text-teal-400">typingtest</div>
-          <div className="flex gap-4">
-            <button className="text-slate-400 hover:text-teal-400 transition-colors">
-              About
-            </button>
-            <button className="text-slate-400 hover:text-teal-400 transition-colors">
-              Guide
-            </button>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-slate-300">
+              <User className="w-4 h-4" />
+              <span>Welcome, {user?.firstName || user?.email}!</span>
+            </div>
+            <Button
+              onClick={handleLogout}
+              variant="ghost"
+              size="sm"
+              className="text-slate-400 hover:text-red-400 hover:bg-red-950/20"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </Button>
           </div>
         </div>
       </header>

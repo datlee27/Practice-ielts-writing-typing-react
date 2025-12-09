@@ -47,7 +47,7 @@ class Essay extends Model<EssayAttributes, EssayCreationAttributes> implements E
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 
-  public readonly user?: User;
+  public readonly author?: User;
 }
 
 Essay.init(
@@ -145,7 +145,5 @@ Essay.init(
     timestamps: true,
   }
 );
-
-Essay.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 export default Essay;

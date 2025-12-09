@@ -128,7 +128,4 @@ Test.init(
   }
 );
 
-Test.belongsTo(User, { foreignKey: 'userId', as: 'user' });
-Test.belongsTo(Prompt, { foreignKey: 'promptId', as: 'prompt' });
-
 export default Test;

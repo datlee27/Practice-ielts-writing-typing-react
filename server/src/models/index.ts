@@ -13,7 +13,7 @@ Prompt.hasMany(Test, { foreignKey: 'promptId', as: 'tests' });
 Test.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 Test.belongsTo(Prompt, { foreignKey: 'promptId', as: 'prompt' });
 
-Essay.belongsTo(User, { foreignKey: 'userId', as: 'essayUser' });
+Essay.belongsTo(User, { foreignKey: 'userId', as: 'author' });
 
 export {
   sequelize,
