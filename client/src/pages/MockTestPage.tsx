@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { Home, Clock } from 'lucide-react';
 import { Button } from '../components/ui/button';
+import { useAuth } from '../contexts/AuthContext';
+import apiClient from '../services/api';
 
 const mockPrompt = {
   task1: "The chart below shows the percentage of households in owned and rented accommodation in England and Wales between 1918 and 2011. Summarise the information by selecting and reporting the main features, and make comparisons where relevant.",
@@ -10,6 +12,7 @@ const mockPrompt = {
 
 export function MockTestPage() {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [essay, setEssay] = useState('');
   const [timeLeft, setTimeLeft] = useState(60 * 60); // 60 minutes in seconds
   const [isStarted, setIsStarted] = useState(false);
@@ -37,12 +40,34 @@ export function MockTestPage() {
     setIsStarted(true);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    const timeSpent = 60 * 60 - timeLeft;
+
+    // Save mock test results for authenticated users
+    if (isAuthenticated) {
+      try {
+        await apiClient.submitTest({
+          testType: 'mock',
+          mode: 'preset',
+          sampleText: mockPrompt.task2,
+          userInput: essay,
+          wpm: 0, // Mock tests don't track WPM
+          accuracy: 100, // Essays are manually graded
+          timeSpent,
+          wordCount,
+          completedAt: new Date().toISOString()
+        });
+      } catch (error) {
+        console.error('Failed to save mock test results:', error);
+        // Continue to navigate even if saving fails
+      }
+    }
+
     navigate('/report', {
       state: {
         essay,
         wordCount,
-        timeSpent: 60 * 60 - timeLeft,
+        timeSpent,
         isMockTest: true
       }
     });

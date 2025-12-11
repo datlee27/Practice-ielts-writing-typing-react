@@ -1,108 +1,14 @@
-import { Request, Response } from 'express';
-import Prompt from '../models/Prompt';
+const { Sequelize } = require('sequelize');
 
-export class PromptController {
-  static async getAllPrompts(req: Request, res: Response): Promise<void> {
-    try {
-      const {
-        page = 1,
-        limit = 10,
-        taskType,
-        difficulty,
-        category,
-        isActive = true
-      } = req.query;
+// Initialize Sequelize
+const sequelize = new Sequelize('ielts_writing_practice', 'root', '', {
+  host: 'localhost',
+  dialect: 'mysql',
+  logging: false
+});
 
-      const offset = (Number(page) - 1) * Number(limit);
-
-      const where: any = {};
-
-      if (taskType && (taskType === 'task1' || taskType === 'task2')) {
-        where.taskType = taskType;
-      }
-
-      if (difficulty && ['easy', 'medium', 'hard'].includes(difficulty as string)) {
-        where.difficulty = difficulty;
-      }
-
-      if (category) {
-        where.category = category;
-      }
-
-      where.isActive = isActive === 'true';
-
-      const prompts = await Prompt.findAndCountAll({
-        where,
-        limit: Number(limit),
-        offset,
-        order: [['createdAt', 'DESC']],
-      });
-
-      res.json({
-        data: prompts.rows,
-        pagination: {
-          page: Number(page),
-          limit: Number(limit),
-          total: prompts.count,
-          totalPages: Math.ceil(prompts.count / Number(limit)),
-        },
-      });
-    } catch (error) {
-      res.status(500).json({ message: 'Internal server error' });
-    }
-  }
-
-  static async getRandomPrompts(req: Request, res: Response): Promise<void> {
-    try {
-      const { count = 10, taskType } = req.query;
-
-      const where: any = { isActive: true };
-
-      if (taskType && (taskType === 'task1' || taskType === 'task2')) {
-        where.taskType = taskType;
-      }
-
-      const prompts = await Prompt.findAll({
-        where,
-        order: Prompt.sequelize!.random(),
-        limit: Number(count),
-      });
-
-      res.json({
-        data: prompts,
-        count: prompts.length,
-      });
-    } catch (error) {
-      res.status(500).json({ message: 'Internal server error' });
-    }
-  }
-
-  static async getPromptById(req: Request, res: Response): Promise<void> {
-    try {
-      const { id } = req.params;
-
-      const prompt = await Prompt.findOne({
-        where: {
-          id: Number(id),
-          isActive: true,
-        },
-      });
-
-      if (!prompt) {
-        res.status(404).json({ message: 'Prompt not found' });
-        return;
-      }
-
-      res.json({ data: prompt });
-    } catch (error) {
-      res.status(500).json({ message: 'Internal server error' });
-    }
-  }
-
-  static async populateSampleEssays(req: Request, res: Response): Promise<void> {
-    try {
-      const sampleEssays = {
-        'Technology and Communication': `It is often argued that technological advancements have complicated our lives, whereas others contend that they have simplified them. In my opinion, although technology can be challenging to adapt to initially, it ultimately makes our lives easier in many ways. This essay will discuss both perspectives before presenting my viewpoint.
+const sampleEssays = {
+  'Technology and Communication': `It is often argued that technological advancements have complicated our lives, whereas others contend that they have simplified them. In my opinion, although technology can be challenging to adapt to initially, it ultimately makes our lives easier in many ways. This essay will discuss both perspectives before presenting my viewpoint.
 
 On the one hand, there are several reasons why some people believe technology has made life more complicated. Firstly, the rapid pace of technological change means that people constantly need to learn new skills and adapt to new devices. For example, older people often struggle with smartphones and computers, leading to frustration and feelings of inadequacy. Secondly, technology can create new problems such as privacy concerns and cyber security threats. People worry about their personal data being hacked or misused, which adds a layer of complexity to daily life.
 
@@ -110,7 +16,7 @@ On the other hand, technology has undoubtedly simplified many aspects of modern 
 
 In conclusion, while technology does present some challenges, particularly for those less familiar with it, the benefits far outweigh the drawbacks. The key is to embrace technological change and use it to enhance rather than complicate our lives.`,
 
-        'Environmental Protection': `The government should invest more money in environmental protection rather than in economic development. To what extent do you agree or disagree?
+  'Environmental Protection': `The government should invest more money in environmental protection rather than in economic development. To what extent do you agree or disagree?
 
 There is ongoing debate about whether governments should prioritize environmental protection over economic development. While some argue that economic growth should take precedence, I strongly believe that environmental protection is equally important and should be given equal consideration.
 
@@ -122,7 +28,7 @@ Furthermore, environmental problems do not respect national borders. Actions in 
 
 In conclusion, while economic development is important, it should not come at the expense of environmental protection. Governments should pursue sustainable development that balances economic growth with environmental stewardship.`,
 
-        'Education System': `Some people think that schools should focus more on academic subjects while others believe that schools should also teach practical skills. Discuss both views and give your opinion.
+  'Education System': `Some people think that schools should focus more on academic subjects while others believe that schools should also teach practical skills. Discuss both views and give your opinion.
 
 There is considerable debate about whether computers and the internet are more important than traditional schooling for children\'s education. While technology offers numerous advantages, I believe that school teachers remain essential for effective learning.
 
@@ -134,7 +40,7 @@ In my view, the most effective education combines both approaches. Technology ca
 
 To conclude, while computers and the internet offer valuable educational opportunities, school teachers play an irreplaceable role in children\'s learning. The best approach combines the strengths of both traditional and digital education.`,
 
-        'Urban Population Growth': `The chart below shows the percentage of households in owned and rented accommodation in England and Wales between 1918 and 2011. Summarise the information by selecting and reporting the main features, and make comparisons where relevant.
+  'Urban Population Growth': `The chart below shows the percentage of households in owned and rented accommodation in England and Wales between 1918 and 2011. Summarise the information by selecting and reporting the main features, and make comparisons where relevant.
 
 The chart illustrates the proportion of households living in owned and rented accommodation in England and Wales from 1918 to 2011. Overall, the percentage of owner-occupied homes increased significantly over the period, while rented accommodation declined considerably.
 
@@ -146,7 +52,7 @@ Social renting showed more fluctuation, starting at zero in 1918, rising to 29% 
 
 In summary, the data shows a clear shift from renting to owner occupation in England and Wales over nearly a century, with owner occupation becoming the dominant form of housing tenure by the early 21st century.`,
 
-        'Internet Usage Statistics': `The graphs below show the percentage of Internet users in different age groups in Australia from 1994 to 2009, and the percentage of people who purchased goods online in Australia between 1994 and 2009. Summarise the information by selecting and reporting the main features, and make comparisons where relevant.
+  'Internet Usage Statistics': `The graphs below show the percentage of Internet users in different age groups in Australia from 1994 to 2009, and the percentage of people who purchased goods online in Australia between 1994 and 2009. Summarise the information by selecting and reporting the main features, and make comparisons where relevant.
 
 The line graph illustrates Internet usage among different age groups in Australia from 1994 to 2009, while the bar chart shows the percentage of Australians who made online purchases during the same period.
 
@@ -158,7 +64,7 @@ The bar chart shows online shopping adoption rising from 10% in 1994 to approxim
 
 Overall, younger Australians adopted Internet technology much faster than older generations, with teenagers leading the way. Online shopping also became increasingly popular over the 15-year period, though adoption rates were lower than basic Internet usage.`,
 
-        'Work-Life Balance': `Many people find it difficult to balance work and other parts of their lives. What are the reasons for this? What can be done to help people achieve a better work-life balance?
+  'Work-Life Balance': `Many people find it difficult to balance work and other parts of their lives. What are the reasons for this? What can be done to help people achieve a better work-life balance?
 
 There are several reasons why achieving work-life balance has become increasingly challenging in modern society. This essay will discuss these causes and propose some solutions.
 
@@ -171,25 +77,37 @@ To address these issues, several measures can be implemented. Employers should p
 Additionally, individuals should learn to set boundaries and prioritize self-care. This might involve turning off work notifications during personal time or delegating tasks when possible. Companies can also provide training on time management and stress reduction techniques.
 
 In conclusion, while modern work demands and economic pressures make work-life balance challenging, various solutions exist at individual, organizational, and governmental levels. Achieving better balance requires commitment from all stakeholders to create a more sustainable and healthy work culture.`
-      };
+};
 
-      let updatedCount = 0;
-      for (const [title, essay] of Object.entries(sampleEssays)) {
-        const [affectedRows] = await Prompt.update(
-          { sampleEssay: essay },
-          { where: { title } }
-        );
-        if (affectedRows > 0) {
-          updatedCount++;
+async function insertSampleData() {
+  try {
+    // Test connection
+    await sequelize.authenticate();
+    console.log('✅ Connected to database');
+
+    // Update each prompt with sample essay
+    for (const [title, essay] of Object.entries(sampleEssays)) {
+      const [affectedRows] = await sequelize.query(
+        'UPDATE prompts SET sampleEssay = ? WHERE title = ?',
+        {
+          replacements: [essay, title],
+          type: sequelize.QueryTypes.UPDATE
         }
-      }
+      );
 
-      res.json({
-        message: `Updated ${updatedCount} prompts with sample essays`,
-        updatedCount
-      });
-    } catch (error) {
-      res.status(500).json({ message: 'Internal server error' });
+      if (affectedRows > 0) {
+        console.log(`✅ Updated: ${title}`);
+      } else {
+        console.log(`⚠️  Not found: ${title}`);
+      }
     }
+
+    console.log('🎉 Sample essays inserted successfully!');
+  } catch (error) {
+    console.error('❌ Error:', error.message);
+  } finally {
+    await sequelize.close();
   }
 }
+
+insertSampleData();

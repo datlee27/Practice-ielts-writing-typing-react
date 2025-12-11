@@ -1,7 +1,9 @@
+import React from 'react';
 import { Routes, Route, Navigate } from 'react-router';
 import { useAuth } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { HomePage } from './pages/HomePage';
+import { LandingPage } from './pages/LandingPage';
 import { PracticePage } from './pages/PracticePage';
 import { MockTestPage } from './pages/MockTestPage';
 import { CustomPromptPage } from './pages/CustomPromptPage';
@@ -35,20 +37,18 @@ function App() {
         element={isAuthenticated ? <Navigate to="/" replace /> : <RegisterPage />}
       />
 
-      {/* Protected routes */}
+      {/* Practice page - accessible to both guest and authenticated users */}
+      <Route path="/practice" element={<PracticePage />} />
+
+      {/* Landing page - accessible to all users */}
+      <Route path="/" element={<LandingPage />} />
+
+      {/* Protected routes - only for authenticated users */}
       <Route
-        path="/"
+        path="/dashboard"
         element={
           <ProtectedRoute>
             <HomePage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/practice"
-        element={
-          <ProtectedRoute>
-            <PracticePage />
           </ProtectedRoute>
         }
       />
@@ -77,8 +77,8 @@ function App() {
         }
       />
 
-      {/* Redirect unknown routes to home */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {/* Redirect unknown routes to practice for guests, home for authenticated users */}
+      <Route path="*" element={isAuthenticated ? <Navigate to="/" replace /> : <Navigate to="/practice" replace />} />
     </Routes>
   );
 }

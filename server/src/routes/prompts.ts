@@ -16,6 +16,8 @@ router.get(
 
 router.get('/random', optionalAuth, PromptController.getRandomPrompts);
 
+router.post('/populate-sample-essays', PromptController.populateSampleEssays);
+
 router.get(
   '/:id',
   optionalAuth,

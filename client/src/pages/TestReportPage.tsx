@@ -151,22 +151,52 @@ export function TestReportPage() {
 
           {/* Stats Overview */}
           {!stats.isMockTest && (
-            <div className="grid md:grid-cols-4 gap-4">
+            <div className="grid md:grid-cols-5 gap-4">
               <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 text-center">
                 <div className="text-3xl text-teal-400 mb-2">{stats.wpm}</div>
                 <div className="text-sm text-slate-400">Words Per Minute</div>
               </div>
               <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 text-center">
+                <div className="text-3xl text-teal-400 mb-2">{stats.kpm || 0}</div>
+                <div className="text-sm text-slate-400">Keystrokes Per Minute</div>
+              </div>
+              <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 text-center">
                 <div className="text-3xl text-teal-400 mb-2">{stats.accuracy}%</div>
-                <div className="text-sm text-slate-400">Accuracy</div>
+                <div className="text-sm text-slate-400">Character Accuracy</div>
               </div>
               <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 text-center">
                 <div className="text-3xl text-teal-400 mb-2">{Math.floor(stats.time / 1000)}s</div>
                 <div className="text-sm text-slate-400">Total Time</div>
               </div>
               <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 text-center">
-                <div className="text-3xl text-teal-400 mb-2">{stats.completeness}%</div>
-                <div className="text-sm text-slate-400">Completion</div>
+                <div className="text-3xl text-red-400 mb-2">{stats.errorCount || 0}</div>
+                <div className="text-sm text-slate-400">Total Errors</div>
+              </div>
+            </div>
+          )}
+
+          {/* Error Analysis Section */}
+          {!stats.isMockTest && stats.errors && stats.errors.length > 0 && (
+            <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
+              <h3 className="text-xl text-teal-400 mb-4">Error Analysis</h3>
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {stats.errors.slice(0, 9).map((error, index) => (
+                    <div key={index} className="bg-slate-900/50 border border-slate-600 rounded p-3">
+                      <div className="text-sm text-slate-400 mb-1">Position {error.position + 1}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-red-400 font-mono">"{error.actual}"</span>
+                        <span className="text-slate-500">→</span>
+                        <span className="text-teal-400 font-mono">"{error.expected}"</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {stats.errors.length > 9 && (
+                  <div className="text-center text-slate-400 text-sm">
+                    ... and {stats.errors.length - 9} more errors
+                  </div>
+                )}
               </div>
             </div>
           )}

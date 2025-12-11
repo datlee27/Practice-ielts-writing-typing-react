@@ -5,6 +5,7 @@ export interface PromptAttributes {
   id: number;
   title: string;
   content: string;
+  sampleEssay?: string;
   taskType: 'task1' | 'task2';
   difficulty: 'easy' | 'medium' | 'hard';
   category?: string;
@@ -21,6 +22,7 @@ class Prompt extends Model<PromptAttributes, PromptCreationAttributes> implement
   public id!: number;
   public title!: string;
   public content!: string;
+  public sampleEssay?: string;
   public taskType!: 'task1' | 'task2';
   public difficulty!: 'easy' | 'medium' | 'hard';
   public category?: string;
@@ -45,6 +47,10 @@ Prompt.init(
     content: {
       type: DataTypes.TEXT,
       allowNull: false,
+    },
+    sampleEssay: {
+      type: DataTypes.TEXT,
+      allowNull: true,
     },
     taskType: {
       type: DataTypes.ENUM('task1', 'task2'),
