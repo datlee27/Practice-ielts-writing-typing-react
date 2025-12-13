@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { RotateCcw, Upload, BookOpen, Image, Lock, RefreshCw } from 'lucide-react';
 import { VirtualKeyboard } from '../components/VirtualKeyboard';
@@ -6,7 +6,6 @@ import { Button } from '../components/ui/button';
 import { ImageUploadModal } from '../components/ImageUploadModal';
 import { useAuth } from '../contexts/AuthContext';
 import apiClient from '../services/api';
-import React from 'react';
 type PracticeMode = 'preset' | 'custom';
 
 export function PracticePage() {
@@ -16,9 +15,6 @@ export function PracticePage() {
   const [userInput, setUserInput] = useState('');
   const [startTime, setStartTime] = useState<number | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
-  const [wordCount, setWordCount] = useState<10 | 25 | 50 | 100>(25);
-  const [includePunctuation, setIncludePunctuation] = useState(false);
-  const [includeNumbers, setIncludeNumbers] = useState(false);
   const [zenMode, setZenMode] = useState(false);
   const [lastPressedKey, setLastPressedKey] = useState<string>('');
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -29,6 +25,7 @@ export function PracticePage() {
   const [prompts, setPrompts] = useState<any[]>([]);
   const [currentPrompt, setCurrentPrompt] = useState<any>(null);
   const [loadingPrompts, setLoadingPrompts] = useState(false);
+  const [showFullText, setShowFullText] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Temporary sample essays until database is properly populated
@@ -80,6 +77,7 @@ export function PracticePage() {
     if (prompts.length === 0) return;
     const randomIndex = Math.floor(Math.random() * prompts.length);
     setCurrentPrompt(prompts[randomIndex]);
+    setShowFullText(false);
     resetPractice();
   };
 
@@ -249,7 +247,11 @@ export function PracticePage() {
     const typedWords = userInput.trim().split(' ').filter(w => w.length > 0);
     const currentWordIndex = getCurrentWordIndex();
 
-    return words.map((word, index) => {
+    // Limit words to show only first ~3 lines (approximately 60 words) when not showing full text
+    const maxWordsToShow = showFullText ? words.length : Math.min(60, words.length);
+    const wordsToShow = words.slice(0, maxWordsToShow);
+
+    return wordsToShow.map((word, index) => {
       const isCurrentWord = index === currentWordIndex;
       const isTyped = index < typedWords.length;
       const isCorrect = isTyped && typedWords[index] === word;
@@ -308,6 +310,7 @@ export function PracticePage() {
     setCurrentTime(0);
     setErrors([]);
     setTotalKeystrokes(0);
+    setShowFullText(false);
     containerRef.current?.focus();
   };
 
@@ -323,6 +326,7 @@ export function PracticePage() {
     setUploadedImage(imageUrl);
     setMode('custom');
     setShowUploadModal(false);
+    setShowFullText(false);
     resetPractice();
   };
 
@@ -330,6 +334,7 @@ export function PracticePage() {
     setMode('preset');
     setCustomText('');
     setUploadedImage('');
+    setShowFullText(false);
     resetPractice();
   };
 
@@ -422,36 +427,7 @@ export function PracticePage() {
             {/* Settings Bar - Only show for preset mode */}
             {mode === 'preset' && (
               <div className="flex flex-wrap items-center gap-3 text-sm">
-                <button
-                  onClick={() => setIncludePunctuation(!includePunctuation)}
-                  className={`px-3 py-1.5 rounded-md transition-colors ${
-                    includePunctuation ? 'bg-teal-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-teal-400'
-                  }`}
-                >
-                  #punctuation
-                </button>
-                <button
-                  onClick={() => setIncludeNumbers(!includeNumbers)}
-                  className={`px-3 py-1.5 rounded-md transition-colors ${
-                    includeNumbers ? 'bg-teal-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-teal-400'
-                  }`}
-                >
-                  #numbers
-                </button>
-                <div className="h-6 w-px bg-slate-700"></div>
-                <button className="px-3 py-1.5 rounded-md bg-slate-800 text-slate-400 hover:text-teal-400 transition-colors">
-                  time
-                </button>
-                <button className="px-3 py-1.5 rounded-md bg-slate-800 text-slate-400 hover:text-teal-400 transition-colors">
-                  quote
-                </button>
-                <button
-                  onClick={() => setZenMode(!zenMode)}
-                  className="px-3 py-1.5 rounded-md bg-slate-800 text-slate-400 hover:text-teal-400 transition-colors"
-                >
-                  zen
-                </button>
-                <div className="h-6 w-px bg-slate-700"></div>
+
                 <button
                   onClick={getRandomPrompt}
                   disabled={loadingPrompts}
@@ -460,25 +436,7 @@ export function PracticePage() {
                   <RefreshCw className={`w-4 h-4 ${loadingPrompts ? 'animate-spin' : ''}`} />
                   <span>Random</span>
                 </button>
-                <div className="h-6 w-px bg-slate-700"></div>
-                {([10, 25, 50, 100] as const).map((count) => (
-                  <button
-                    key={count}
-                    onClick={() => {
-                      setWordCount(count);
-                      resetPractice();
-                    }}
-                    className={`px-3 py-1.5 rounded-md transition-colors ${
-                      wordCount === count ? 'bg-teal-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-teal-400'
-                    }`}
-                  >
-                    {count}
-                  </button>
-                ))}
-                <div className="h-6 w-px bg-slate-700"></div>
-                <button className="px-3 py-1.5 rounded-md bg-slate-800 text-slate-400 hover:text-teal-400 transition-colors">
-                  English
-                </button>
+
               </div>
             )}
 
@@ -541,6 +499,18 @@ export function PracticePage() {
                   {renderWords()}
                   <span className="inline-block w-0.5 h-9 bg-teal-400 ml-1 animate-pulse align-middle" />
                 </div>
+
+                {/* Show Full Text Button */}
+                {!showFullText && words.length > 60 && (
+                  <div className="mt-6 text-center">
+                    <button
+                      onClick={() => setShowFullText(true)}
+                      className="px-6 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg transition-colors text-sm"
+                    >
+                      Xem Toàn Bộ Bài Viết
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Virtual Keyboard */}
