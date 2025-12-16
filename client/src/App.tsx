@@ -2,7 +2,6 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router';
 import { useAuth } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
-import { HomePage } from './pages/HomePage';
 import { LandingPage } from './pages/LandingPage';
 import { PracticePage } from './pages/PracticePage';
 import { MockTestPage } from './pages/MockTestPage';
@@ -44,14 +43,6 @@ function App() {
       <Route path="/" element={<LandingPage />} />
 
       {/* Protected routes - only for authenticated users */}
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <HomePage />
-          </ProtectedRoute>
-        }
-      />
       <Route
         path="/mock-test"
         element={
