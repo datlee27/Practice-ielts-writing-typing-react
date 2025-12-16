@@ -26,11 +26,24 @@ export interface User {
   firstName?: string;
   lastName?: string;
   avatar?: string;
+  googleId?: string;
+  provider?: 'local' | 'google';
 }
 
 export interface AuthResponse {
   user: User;
   token: string;
+}
+
+export interface GoogleLoginRequest {
+  credential: string; // JWT token từ Google
+}
+
+export interface GoogleUserInfo {
+  email: string;
+  name: string;
+  picture: string;
+  sub: string; // Google ID
 }
 
 // Prompt types
@@ -212,7 +225,7 @@ class ApiClient {
     if (taskType) params.append('taskType', taskType);
 
     const response = await this.client.get<ApiResponse<Prompt[]>>(`/prompts/random?${params}`);
-    return response.data.data;
+    return response.data.data; 
   }
 
   async getPrompt(id: number): Promise<Prompt> {

@@ -61,7 +61,7 @@ export function PracticePage() {
   const fetchPrompts = async () => {
     try {
       setLoadingPrompts(true);
-      const response = await apiClient.getRandomPrompts(10, 'task2');
+      const response = await apiClient.getRandomPrompts(10);
       setPrompts(response);
       if (response.length > 0) {
         setCurrentPrompt(response[0]);
