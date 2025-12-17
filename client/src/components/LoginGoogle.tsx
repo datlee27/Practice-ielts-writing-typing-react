@@ -74,8 +74,10 @@ const LoginGoogle: React.FC = () => {
   // Xử lý khi Google login thành công
   const handleGoogleLogin = async (response: any) => {
     try {
+      console.log('Google response:', response);
       // Decode JWT token để lấy thông tin user
       const decodedToken = JSON.parse(atob(response.credential.split('.')[1]));
+      console.log('Decoded token:', decodedToken);
 
       const googleUserData: GoogleUserInfo = {
         email: decodedToken.email,
@@ -84,6 +86,7 @@ const LoginGoogle: React.FC = () => {
         sub: decodedToken.sub, // Google ID
       };
 
+      console.log('Google user data:', googleUserData);
       await googleLogin(googleUserData);
     } catch (error) {
       console.error('Error processing Google login:', error);

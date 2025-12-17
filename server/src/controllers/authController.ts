@@ -53,6 +53,7 @@ export class AuthController {
 
   static async googleLogin(req: Request, res: Response): Promise<void> {
     try {
+      console.log('Google login request:', req.body);
       const data: GoogleLoginData = req.body;
       const result = await AuthService.googleLogin(data);
 
@@ -61,6 +62,7 @@ export class AuthController {
         data: result,
       });
     } catch (error) {
+      console.error('Google login error:', error);
       if (error instanceof Error) {
         res.status(400).json({ message: error.message });
       } else {
