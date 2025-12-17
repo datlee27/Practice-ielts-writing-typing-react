@@ -14,13 +14,23 @@ export interface RegisterData {
   lastName?: string;
 }
 
+export interface GoogleLoginData {
+  email: string;
+  name: string;
+  picture: string;
+  sub: string; // Google ID
+}
+
 export interface AuthResponse {
   user: {
     id: number;
+    uuid: string;
     email: string;
     firstName?: string;
     lastName?: string;
     avatar?: string;
+    googleId?: string;
+    provider: 'local' | 'google';
   };
   token: string;
 }
@@ -64,10 +74,13 @@ export class AuthService {
     return {
       user: {
         id: user.id,
+        uuid: user.uuid,
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
         avatar: user.avatar,
+        googleId: user.googleId,
+        provider: user.provider,
       },
       token,
     };
@@ -81,6 +94,10 @@ export class AuthService {
       throw new Error('Invalid email or password');
     }
 
+    if (!user.password) {
+      throw new Error('Invalid email or password');
+    }
+
     const isValidPassword = await this.verifyPassword(password, user.password);
     if (!isValidPassword) {
       throw new Error('Invalid email or password');
@@ -91,10 +108,64 @@ export class AuthService {
     return {
       user: {
         id: user.id,
+        uuid: user.uuid,
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
         avatar: user.avatar,
+        googleId: user.googleId,
+        provider: user.provider,
+      },
+      token,
+    };
+  }
+
+  static async googleLogin(data: GoogleLoginData): Promise<AuthResponse> {
+    const { email, name, picture, sub } = data;
+
+    // Check if user already exists with this Google ID
+    let user = await User.findOne({ where: { googleId: sub } });
+
+    if (!user) {
+      // Check if user exists with this email
+      const existingUser = await User.findOne({ where: { email } });
+
+      if (existingUser) {
+        // Link Google account to existing user
+        await existingUser.update({
+          googleId: sub,
+          avatar: picture,
+          provider: 'google',
+        });
+        user = existingUser;
+      } else {
+        // Create new user
+        const nameParts = name.split(' ');
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+
+        user = await User.create({
+          email,
+          firstName,
+          lastName,
+          avatar: picture,
+          googleId: sub,
+        });
+      }
+    }
+
+    const token = this.generateToken(user.id);
+
+    return {
+      user: {
+        id: user.id,
+        uuid: user.uuid,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        avatar: user.avatar,
+        googleId: user.googleId,
+        provider: user.provider,
       },
       token,
     };

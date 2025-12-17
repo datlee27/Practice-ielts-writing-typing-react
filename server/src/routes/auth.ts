@@ -20,6 +20,8 @@ router.post(
   AuthController.login
 );
 
+router.post('/google', AuthController.googleLogin);
+
 router.get('/profile', authenticateToken, AuthController.getProfile);
 
 export default router;

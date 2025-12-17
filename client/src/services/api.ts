@@ -195,6 +195,13 @@ class ApiClient {
     return authData;
   }
 
+  async googleLogin(data: GoogleUserInfo): Promise<AuthResponse> {
+    const response = await this.client.post<ApiResponse<AuthResponse>>('/auth/google', data);
+    const authData = response.data.data;
+    this.setToken(authData.token);
+    return authData;
+  }
+
   async getProfile(): Promise<User> {
     const response = await this.client.get<ApiResponse<User>>('/auth/profile');
     return response.data.data;

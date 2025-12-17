@@ -108,11 +108,12 @@ const startServer = async () => {
     await sequelize.authenticate();
     console.log('✅ Database connection established successfully.');
 
-    // Sync database (create tables)
-    if (process.env.NODE_ENV === 'development') {
-      await sequelize.sync({ alter: true });
-      console.log('✅ Database synchronized successfully.');
-    }
+    // Sync database (create tables) - DISABLED to avoid conflicts with existing data
+    // Uncomment below if you need to create tables from scratch
+    // if (process.env.NODE_ENV === 'development') {
+    //   await sequelize.sync({ alter: true });
+    //   console.log('✅ Database synchronized successfully.');
+    // }
 
     // Start server
     app.listen(PORT, () => {

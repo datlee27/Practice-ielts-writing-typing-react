@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { AuthService, RegisterData, LoginData } from '../services/authService';
+import { AuthService, RegisterData, LoginData, GoogleLoginData } from '../services/authService';
 import { validationResult } from 'express-validator';
 
 export class AuthController {
@@ -51,6 +51,24 @@ export class AuthController {
     }
   }
 
+  static async googleLogin(req: Request, res: Response): Promise<void> {
+    try {
+      const data: GoogleLoginData = req.body;
+      const result = await AuthService.googleLogin(data);
+
+      res.json({
+        message: 'Google login successful',
+        data: result,
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(400).json({ message: error.message });
+      } else {
+        res.status(500).json({ message: 'Internal server error' });
+      }
+    }
+  }
+
   static async getProfile(req: Request, res: Response): Promise<void> {
     try {
       const user = (req as any).user;
@@ -58,10 +76,13 @@ export class AuthController {
       res.json({
         data: {
           id: user.id,
+          uuid: user.uuid,
           email: user.email,
           firstName: user.firstName,
           lastName: user.lastName,
           avatar: user.avatar,
+          googleId: user.googleId,
+          provider: user.provider,
           createdAt: user.createdAt,
         },
       });
