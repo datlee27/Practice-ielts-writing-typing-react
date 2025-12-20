@@ -106,6 +106,13 @@ export interface OCRResult {
   imageUrl: string;
 }
 
+export interface FileUploadResult {
+  extractedText: string;
+  fileType: 'image' | 'pdf' | 'doc' | 'docx' | 'txt';
+  fileUrl?: string;
+  fileName: string;
+}
+
 // Pagination
 export interface PaginationMeta {
   page: number;
@@ -279,6 +286,18 @@ class ApiClient {
     formData.append('image', file);
 
     const response = await this.client.post<ApiResponse<OCRResult>>('/essays/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data.data;
+  }
+
+  async uploadEssayFile(file: File): Promise<FileUploadResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await this.client.post<ApiResponse<FileUploadResult>>('/essays/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
