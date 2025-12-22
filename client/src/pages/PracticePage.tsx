@@ -1,12 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useLocation } from 'react-router';
 import { RotateCcw, Upload, BookOpen, Image, Lock, RefreshCw } from 'lucide-react';
 import { VirtualKeyboard } from '../components/VirtualKeyboard';
 import { Button } from '../components/ui/button';
-import { FileUploadModal } from '../components/FileUploadModal';
 import { useAuth } from '../contexts/AuthContext';
-import apiClient from '../services/api';
+import apiClient, { Essay } from '../services/api';
 type PracticeMode = 'preset' | 'custom';
+type SavedUpload = Essay & {
+  promptRef?: {
+    title?: string;
+    content?: string;
+    sampleEssay?: string;
+    taskType?: 'task1' | 'task2';
+    category?: string;
+  };
+};
 
 export function PracticePage() {
   const navigate = useNavigate();
@@ -17,7 +25,6 @@ export function PracticePage() {
   const [currentTime, setCurrentTime] = useState(0);
   const [zenMode, setZenMode] = useState(false);
   const [lastPressedKey, setLastPressedKey] = useState<string>('');
-  const [showUploadModal, setShowUploadModal] = useState(false);
   const [customText, setCustomText] = useState('');
   const [uploadedImage, setUploadedImage] = useState<string>('');
   const [errors, setErrors] = useState<{ position: number; expected: string; actual: string }[]>([]);
@@ -32,13 +39,49 @@ export function PracticePage() {
     taskType: 'task1' | 'task2';
     category: string;
   } | null>(null);
+  const [savedUploads, setSavedUploads] = useState<SavedUpload[]>([]);
+  const [activeSavedUploadId, setActiveSavedUploadId] = useState<number | null>(null);
+  const [loadingSaved, setLoadingSaved] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
+  const hasAppliedNavigationState = useRef(false);
 
 
   const sampleText = mode === 'preset'
     ? (currentPrompt?.sampleEssay || "No sample essay available for this prompt. Please select another prompt or upload your own text.")
     : customText;
   const words = sampleText.split(' ').filter(w => w.length > 0);
+
+  const fetchSavedUploads = async () => {
+    if (!isAuthenticated) return;
+    try {
+      setLoadingSaved(true);
+      const data = await apiClient.getSavedEssays();
+      setSavedUploads(data as SavedUpload[]);
+    } catch (error) {
+      console.error('Failed to fetch saved uploads', error);
+    } finally {
+      setLoadingSaved(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSavedUploads();
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    const state = location.state as { savedUploadId?: string } | undefined;
+    if (hasAppliedNavigationState.current) return;
+    const savedId = state?.savedUploadId ? Number(state.savedUploadId) : undefined;
+    if (savedId && savedUploads.length > 0) {
+      const match = savedUploads.find(item => item.id === savedId);
+      if (match) {
+        startPracticeFromSaved(match);
+        hasAppliedNavigationState.current = true;
+        navigate('/practice', { replace: true });
+      }
+    }
+  }, [location.state, savedUploads, navigate]);
 
   useEffect(() => {
     let interval: number;
@@ -68,6 +111,32 @@ export function PracticePage() {
     } finally {
       setLoadingPrompts(false);
     }
+  };
+
+  const markUploadPracticed = async (id: number) => {
+    try {
+      await apiClient.markEssayPracticed(id);
+      fetchSavedUploads();
+    } catch (error) {
+      console.error('Failed to mark practiced', error);
+    }
+  };
+
+  const startPracticeFromSaved = (upload: SavedUpload) => {
+    setMode('custom');
+    const sampleEssay = upload.promptRef?.sampleEssay || upload.essayText || '';
+    setCustomText(sampleEssay);
+    setUploadedImage(upload.uploadedImage || '');
+    setCustomPrompt({
+      title: upload.promptRef?.title || 'Untitled',
+      content: upload.promptRef?.content || '',
+      taskType: (upload.promptRef?.taskType as 'task1' | 'task2') || upload.taskType,
+      category: upload.promptRef?.category || '',
+    });
+    setShowFullText(false);
+    setActiveSavedUploadId(upload.id || null);
+    resetPractice();
+    containerRef.current?.focus();
   };
 
   const getRandomPrompt = () => {
@@ -123,6 +192,10 @@ export function PracticePage() {
 
             // Save results for authenticated users
             await savePracticeResults(finalStats, newInput);
+
+            if (activeSavedUploadId) {
+              markUploadPracticed(activeSavedUploadId);
+            }
 
             if (mode === 'custom') {
               // For custom mode, go to prompt input
@@ -318,33 +391,12 @@ export function PracticePage() {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const handleFileUpload = (data: {
-    sampleEssay: string;
-    title: string;
-    content: string;
-    taskType: 'task1' | 'task2';
-    category: string;
-    fileUrl?: string;
-  }) => {
-    setCustomText(data.sampleEssay);
-    setUploadedImage(data.fileUrl || '');
-    setCustomPrompt({
-      title: data.title,
-      content: data.content,
-      taskType: data.taskType,
-      category: data.category,
-    });
-    setMode('custom');
-    setShowUploadModal(false);
-    setShowFullText(false);
-    resetPractice();
-  };
-
   const switchToPresetMode = () => {
     setMode('preset');
     setCustomText('');
     setUploadedImage('');
     setCustomPrompt(null);
+    setActiveSavedUploadId(null);
     setShowFullText(false);
     resetPractice();
   };
@@ -413,7 +465,7 @@ export function PracticePage() {
               </button>
               {isAuthenticated ? (
                 <button
-                  onClick={() => setShowUploadModal(true)}
+                  onClick={() => navigate('/upload')}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
                     mode === 'custom'
                       ? 'bg-teal-600 text-white'
@@ -545,7 +597,7 @@ export function PracticePage() {
               <p className="text-xl text-slate-400 mb-6">Chọn chế độ luyện tập để bắt đầu</p>
               {isAuthenticated ? (
                 <Button
-                  onClick={() => setShowUploadModal(true)}
+                  onClick={() => navigate('/upload')}
                   className="bg-teal-600 hover:bg-teal-500 text-white px-6 py-3"
                 >
                   <Image className="w-4 h-4 mr-2" />
@@ -608,13 +660,6 @@ export function PracticePage() {
         </footer>
       )}
 
-      {/* Upload Modal */}
-      {showUploadModal && (
-        <FileUploadModal
-          onClose={() => setShowUploadModal(false)}
-          onUpload={handleFileUpload}
-        />
-      )}
     </div>
   );
 }
