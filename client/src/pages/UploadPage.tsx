@@ -2,19 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Upload, FileText, Image as ImageIcon, File, Lock, RotateCcw } from 'lucide-react';
 import { Button } from '../components/ui/button';
-import apiClient from '../services/api';
-
-type SavedUpload = {
-  id: string;
-  title: string;
-  content: string;
-  taskType: 'task1' | 'task2';
-  category: string;
-  sampleEssay: string;
-  fileUrl?: string;
-  practiced: boolean;
-  updatedAt: string;
-};
+import apiClient, { Essay } from '../services/api';
 
 export function UploadPage() {
   const navigate = useNavigate();
@@ -28,90 +16,38 @@ export function UploadPage() {
   const [content, setContent] = useState('');
   const [taskType, setTaskType] = useState<'task1' | 'task2'>('task2');
   const [category, setCategory] = useState('');
-  const [savedUploads, setSavedUploads] = useState<SavedUpload[]>([]);
+  const [savedUploads, setSavedUploads] = useState<Array<Essay & { promptRef?: any }>>([]);
+  const [isLoadingSaved, setIsLoadingSaved] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const updateSavedUploads = (updater: (prev: SavedUpload[]) => SavedUpload[]) => {
-    setSavedUploads(prev => {
-      const next = updater(prev);
-      localStorage.setItem('savedUploads', JSON.stringify(next));
-      return next;
-    });
-  };
-
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('savedUploads');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          setSavedUploads(parsed);
-        }
+    const loadSaved = async () => {
+      try {
+        setIsLoadingSaved(true);
+        const data = await apiClient.getSavedEssays();
+        setSavedUploads(data);
+      } catch (err) {
+        console.error('Failed to load saved uploads', err);
+      } finally {
+        setIsLoadingSaved(false);
       }
-    } catch (err) {
-      console.error('Failed to load saved uploads', err);
-    }
+    };
+    loadSaved();
   }, []);
 
-  const saveUploadEntry = (
-    data: Omit<SavedUpload, 'id' | 'practiced' | 'updatedAt'>,
-    options?: { existingId?: string; practiced?: boolean }
-  ) => {
-    const now = new Date().toISOString();
-    const practiced = options?.practiced ?? false;
-    let savedId = options?.existingId || '';
-
-    updateSavedUploads(prev => {
-      let found = false;
-      const updated = prev.map(item => {
-        const isMatch = options?.existingId
-          ? item.id === options.existingId
-          : item.title === data.title && item.category === data.category && item.taskType === data.taskType;
-
-        if (isMatch) {
-          found = true;
-          savedId = item.id;
-          return {
-            ...item,
-            ...data,
-            practiced: practiced || item.practiced,
-            updatedAt: now,
-          };
-        }
-        return item;
-      });
-
-      if (!found) {
-        savedId = options?.existingId || Date.now().toString();
-        return [
-          ...updated,
-          {
-            ...data,
-            id: savedId,
-            practiced,
-            updatedAt: now,
-          },
-        ];
-      }
-
-      return updated;
-    });
-
-    return savedId || options?.existingId || Date.now().toString();
-  };
-
-  const groupedSavedUploads = useMemo<Record<string, Record<string, SavedUpload[]>>>(() => {
-    const groups: Record<string, Record<string, SavedUpload[]>> = {};
+  const groupedSavedUploads = useMemo<Record<string, Record<string, (Essay & { promptRef?: any })[]>>>(() => {
+    const groups: Record<string, Record<string, (Essay & { promptRef?: any })[]>> = {};
     savedUploads.forEach(upload => {
       const taskKey = upload.taskType === 'task1' ? 'Task 1' : 'Task 2';
+      const categoryKey = upload.promptRef?.category || 'Chưa phân loại';
       if (!groups[taskKey]) {
         groups[taskKey] = {};
       }
-      if (!groups[taskKey][upload.category]) {
-        groups[taskKey][upload.category] = [];
+      if (!groups[taskKey][categoryKey]) {
+        groups[taskKey][categoryKey] = [];
       }
-      groups[taskKey][upload.category].push(upload);
+      groups[taskKey][categoryKey].push(upload);
     });
     return groups;
   }, [savedUploads]);
@@ -169,6 +105,9 @@ export function UploadPage() {
     taskType,
     category,
     fileUrl: filePreview || undefined,
+    wordCount: extractedText.split(/\s+/).filter(Boolean).length,
+    difficulty: 'medium' as const,
+    timeLimit: taskType === 'task1' ? 20 : 40,
   });
 
   const validateRequired = () => {
@@ -191,16 +130,31 @@ export function UploadPage() {
     return true;
   };
 
-  const handleSaveOnly = () => {
+  const handleSaveOnly = async () => {
     if (!validateRequired()) return;
-    saveUploadEntry(buildPayload());
-    resetForm();
+    try {
+      await apiClient.saveUploadAndCreatePrompt(buildPayload());
+      const data = await apiClient.getSavedEssays();
+      setSavedUploads(data);
+      resetForm();
+    } catch (err: any) {
+      const message = err?.response?.data?.message || 'Không thể lưu bài lên server';
+      setError(message);
+    }
   };
 
-  const handleStartPractice = () => {
+  const handleStartPractice = async () => {
     if (!validateRequired()) return;
-    const savedId = saveUploadEntry(buildPayload());
-    navigate('/practice', { state: { savedUploadId: savedId } });
+    try {
+      const result = await apiClient.saveUploadAndCreatePrompt(buildPayload());
+      const essayId = result.essay.id;
+      const data = await apiClient.getSavedEssays();
+      setSavedUploads(data);
+      navigate('/practice', { state: { savedUploadId: essayId?.toString?.() || essayId } });
+    } catch (err: any) {
+      const message = err?.response?.data?.message || 'Không thể lưu bài lên server';
+      setError(message);
+    }
   };
 
   const getFileIcon = () => {
@@ -414,18 +368,20 @@ export function UploadPage() {
             </Button>
           </div>
 
-          {savedUploads.length === 0 ? (
+          {isLoadingSaved ? (
+            <p className="text-sm text-slate-500">Đang tải danh sách...</p>
+          ) : savedUploads.length === 0 ? (
             <p className="text-sm text-slate-500">Chưa có bài nào được lưu.</p>
           ) : (
             <div className="space-y-3">
-              {Object.entries(groupedSavedUploads as Record<string, Record<string, SavedUpload[]>>).map(([taskLabel, categories]) => (
+              {Object.entries(groupedSavedUploads as Record<string, Record<string, (Essay & { promptRef?: any })[]>>).map(([taskLabel, categories]) => (
                 <div
                   key={taskLabel}
                   className="bg-slate-900/60 border border-slate-700 rounded-lg p-3"
                 >
                   <div className="text-sm text-teal-300 font-semibold mb-2">{taskLabel}</div>
                   <div className="space-y-2">
-                    {Object.entries(categories as Record<string, SavedUpload[]>).map(([categoryLabel, essays]) => (
+                    {Object.entries(categories as Record<string, (Essay & { promptRef?: any })[]>).map(([categoryLabel, essays]) => (
                       <div key={categoryLabel}>
                         <div className="text-xs text-slate-400 mb-1">Category: {categoryLabel}</div>
                         <div className="flex flex-wrap gap-2">
@@ -435,10 +391,10 @@ export function UploadPage() {
                               onClick={() => navigate('/practice', { state: { savedUploadId: essay.id } })}
                               className="group px-3 py-2 rounded-lg bg-slate-900/60 border border-slate-700 hover:border-teal-500 hover:bg-slate-800 transition-colors text-left"
                             >
-                              <div className="text-sm text-white">{essay.title}</div>
+                              <div className="text-sm text-white">{essay.promptRef?.title || 'Untitled'}</div>
                               <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-1">
                                 <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
-                                  {essay.category}
+                                  {essay.promptRef?.category || 'N/A'}
                                 </span>
                                 {essay.practiced ? (
                                   <span className="px-2 py-0.5 rounded-full bg-teal-900/60 text-teal-200">

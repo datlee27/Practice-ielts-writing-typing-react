@@ -4,18 +4,16 @@ import { RotateCcw, Upload, BookOpen, Image, Lock, RefreshCw } from 'lucide-reac
 import { VirtualKeyboard } from '../components/VirtualKeyboard';
 import { Button } from '../components/ui/button';
 import { useAuth } from '../contexts/AuthContext';
-import apiClient from '../services/api';
+import apiClient, { Essay } from '../services/api';
 type PracticeMode = 'preset' | 'custom';
-type SavedUpload = {
-  id: string;
-  title: string;
-  content: string;
-  taskType: 'task1' | 'task2';
-  category: string;
-  sampleEssay: string;
-  fileUrl?: string;
-  practiced: boolean;
-  updatedAt: string;
+type SavedUpload = Essay & {
+  promptRef?: {
+    title?: string;
+    content?: string;
+    sampleEssay?: string;
+    taskType?: 'task1' | 'task2';
+    category?: string;
+  };
 };
 
 export function PracticePage() {
@@ -42,7 +40,8 @@ export function PracticePage() {
     category: string;
   } | null>(null);
   const [savedUploads, setSavedUploads] = useState<SavedUpload[]>([]);
-  const [activeSavedUploadId, setActiveSavedUploadId] = useState<string | null>(null);
+  const [activeSavedUploadId, setActiveSavedUploadId] = useState<number | null>(null);
+  const [loadingSaved, setLoadingSaved] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const hasAppliedNavigationState = useRef(false);
@@ -53,33 +52,29 @@ export function PracticePage() {
     : customText;
   const words = sampleText.split(' ').filter(w => w.length > 0);
 
-  const updateSavedUploads = (updater: (prev: SavedUpload[]) => SavedUpload[]) => {
-    setSavedUploads(prev => {
-      const next = updater(prev);
-      localStorage.setItem('savedUploads', JSON.stringify(next));
-      return next;
-    });
+  const fetchSavedUploads = async () => {
+    if (!isAuthenticated) return;
+    try {
+      setLoadingSaved(true);
+      const data = await apiClient.getSavedEssays();
+      setSavedUploads(data as SavedUpload[]);
+    } catch (error) {
+      console.error('Failed to fetch saved uploads', error);
+    } finally {
+      setLoadingSaved(false);
+    }
   };
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('savedUploads');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          setSavedUploads(parsed);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to load saved uploads', error);
-    }
-  }, []);
+    fetchSavedUploads();
+  }, [isAuthenticated]);
 
   useEffect(() => {
     const state = location.state as { savedUploadId?: string } | undefined;
     if (hasAppliedNavigationState.current) return;
-    if (state?.savedUploadId && savedUploads.length > 0) {
-      const match = savedUploads.find(item => item.id === state.savedUploadId);
+    const savedId = state?.savedUploadId ? Number(state.savedUploadId) : undefined;
+    if (savedId && savedUploads.length > 0) {
+      const match = savedUploads.find(item => item.id === savedId);
       if (match) {
         startPracticeFromSaved(match);
         hasAppliedNavigationState.current = true;
@@ -118,73 +113,28 @@ export function PracticePage() {
     }
   };
 
-  const saveUploadEntry = (
-    data: Omit<SavedUpload, 'id' | 'practiced' | 'updatedAt'>,
-    options?: { existingId?: string; practiced?: boolean }
-  ) => {
-    const now = new Date().toISOString();
-    const practiced = options?.practiced ?? false;
-    let savedId = options?.existingId || '';
-
-    updateSavedUploads(prev => {
-      let found = false;
-      const updated = prev.map(item => {
-        const isMatch = options?.existingId
-          ? item.id === options.existingId
-          : item.title === data.title && item.category === data.category && item.taskType === data.taskType;
-
-        if (isMatch) {
-          found = true;
-          savedId = item.id;
-          return {
-            ...item,
-            ...data,
-            practiced: practiced || item.practiced,
-            updatedAt: now,
-          };
-        }
-        return item;
-      });
-
-      if (!found) {
-        savedId = options?.existingId || Date.now().toString();
-        return [
-          ...updated,
-          {
-            ...data,
-            id: savedId,
-            practiced,
-            updatedAt: now,
-          },
-        ];
-      }
-
-      return updated;
-    });
-
-    return savedId || options?.existingId || Date.now().toString();
-  };
-
-  const markUploadPracticed = (id: string) => {
-    updateSavedUploads(prev =>
-      prev.map(item =>
-        item.id === id ? { ...item, practiced: true, updatedAt: new Date().toISOString() } : item
-      )
-    );
+  const markUploadPracticed = async (id: number) => {
+    try {
+      await apiClient.markEssayPracticed(id);
+      fetchSavedUploads();
+    } catch (error) {
+      console.error('Failed to mark practiced', error);
+    }
   };
 
   const startPracticeFromSaved = (upload: SavedUpload) => {
     setMode('custom');
-    setCustomText(upload.sampleEssay);
-    setUploadedImage(upload.fileUrl || '');
+    const sampleEssay = upload.promptRef?.sampleEssay || upload.essayText || '';
+    setCustomText(sampleEssay);
+    setUploadedImage(upload.uploadedImage || '');
     setCustomPrompt({
-      title: upload.title,
-      content: upload.content,
-      taskType: upload.taskType,
-      category: upload.category,
+      title: upload.promptRef?.title || 'Untitled',
+      content: upload.promptRef?.content || '',
+      taskType: (upload.promptRef?.taskType as 'task1' | 'task2') || upload.taskType,
+      category: upload.promptRef?.category || '',
     });
     setShowFullText(false);
-    setActiveSavedUploadId(upload.id);
+    setActiveSavedUploadId(upload.id || null);
     resetPractice();
     containerRef.current?.focus();
   };
