@@ -13,9 +13,17 @@ interface FileUploadModalProps {
     category: string;
     fileUrl?: string;
   }) => void;
+  onSave?: (data: {
+    sampleEssay: string;
+    title: string;
+    content: string;
+    taskType: 'task1' | 'task2';
+    category: string;
+    fileUrl?: string;
+  }) => void;
 }
 
-export function FileUploadModal({ onClose, onUpload }: FileUploadModalProps) {
+export function FileUploadModal({ onClose, onUpload, onSave }: FileUploadModalProps) {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string>('');
   const [extractedText, setExtractedText] = useState('');
@@ -64,6 +72,15 @@ export function FileUploadModal({ onClose, onUpload }: FileUploadModalProps) {
     }
   };
 
+  const buildPayload = () => ({
+    sampleEssay: extractedText,
+    title,
+    content,
+    taskType,
+    category,
+    fileUrl: filePreview || undefined,
+  });
+
   const handleSubmit = () => {
     if (!extractedText.trim()) {
       setError('Vui lòng upload file để lấy nội dung.');
@@ -82,14 +99,16 @@ export function FileUploadModal({ onClose, onUpload }: FileUploadModalProps) {
       return;
     }
 
-    onUpload({
-      sampleEssay: extractedText,
-      title,
-      content,
-      taskType,
-      category,
-      fileUrl: filePreview || undefined,
-    });
+    onUpload(buildPayload());
+  };
+
+  const handleSaveOnly = () => {
+    if (!onSave) return;
+    if (!extractedText.trim() || !title.trim() || !content.trim() || !category.trim()) {
+      setError('Vui lòng điền đầy đủ thông tin để lưu.');
+      return;
+    }
+    onSave(buildPayload());
   };
 
   const getFileIcon = () => {
@@ -244,6 +263,22 @@ export function FileUploadModal({ onClose, onUpload }: FileUploadModalProps) {
         </div>
 
         <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-700">
+          {onSave && (
+            <Button
+              onClick={handleSaveOnly}
+              disabled={
+                !extractedText.trim() ||
+                isProcessing ||
+                !title.trim() ||
+                !content.trim() ||
+                !category.trim()
+              }
+              variant="outline"
+              className="border-slate-700 text-teal-300 hover:text-teal-200 hover:border-teal-500"
+            >
+              Lưu Bài
+            </Button>
+          )}
           <Button
             onClick={onClose}
             variant="outline"

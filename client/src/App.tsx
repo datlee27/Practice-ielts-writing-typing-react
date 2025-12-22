@@ -9,6 +9,7 @@ import { CustomPromptPage } from './pages/CustomPromptPage';
 import { TestReportPage } from './pages/TestReportPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { UploadPage } from './pages/UploadPage';
 
 function App() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -64,6 +65,14 @@ function App() {
         element={
           <ProtectedRoute>
             <TestReportPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/upload"
+        element={
+          <ProtectedRoute>
+            <UploadPage />
           </ProtectedRoute>
         }
       />

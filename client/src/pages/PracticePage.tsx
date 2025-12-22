@@ -1,12 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useLocation } from 'react-router';
 import { RotateCcw, Upload, BookOpen, Image, Lock, RefreshCw } from 'lucide-react';
 import { VirtualKeyboard } from '../components/VirtualKeyboard';
 import { Button } from '../components/ui/button';
-import { FileUploadModal } from '../components/FileUploadModal';
 import { useAuth } from '../contexts/AuthContext';
 import apiClient from '../services/api';
 type PracticeMode = 'preset' | 'custom';
+type SavedUpload = {
+  id: string;
+  title: string;
+  content: string;
+  taskType: 'task1' | 'task2';
+  category: string;
+  sampleEssay: string;
+  fileUrl?: string;
+  practiced: boolean;
+  updatedAt: string;
+};
 
 export function PracticePage() {
   const navigate = useNavigate();
@@ -17,7 +27,6 @@ export function PracticePage() {
   const [currentTime, setCurrentTime] = useState(0);
   const [zenMode, setZenMode] = useState(false);
   const [lastPressedKey, setLastPressedKey] = useState<string>('');
-  const [showUploadModal, setShowUploadModal] = useState(false);
   const [customText, setCustomText] = useState('');
   const [uploadedImage, setUploadedImage] = useState<string>('');
   const [errors, setErrors] = useState<{ position: number; expected: string; actual: string }[]>([]);
@@ -32,13 +41,52 @@ export function PracticePage() {
     taskType: 'task1' | 'task2';
     category: string;
   } | null>(null);
+  const [savedUploads, setSavedUploads] = useState<SavedUpload[]>([]);
+  const [activeSavedUploadId, setActiveSavedUploadId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
+  const hasAppliedNavigationState = useRef(false);
 
 
   const sampleText = mode === 'preset'
     ? (currentPrompt?.sampleEssay || "No sample essay available for this prompt. Please select another prompt or upload your own text.")
     : customText;
   const words = sampleText.split(' ').filter(w => w.length > 0);
+
+  const updateSavedUploads = (updater: (prev: SavedUpload[]) => SavedUpload[]) => {
+    setSavedUploads(prev => {
+      const next = updater(prev);
+      localStorage.setItem('savedUploads', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('savedUploads');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setSavedUploads(parsed);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load saved uploads', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    const state = location.state as { savedUploadId?: string } | undefined;
+    if (hasAppliedNavigationState.current) return;
+    if (state?.savedUploadId && savedUploads.length > 0) {
+      const match = savedUploads.find(item => item.id === state.savedUploadId);
+      if (match) {
+        startPracticeFromSaved(match);
+        hasAppliedNavigationState.current = true;
+        navigate('/practice', { replace: true });
+      }
+    }
+  }, [location.state, savedUploads, navigate]);
 
   useEffect(() => {
     let interval: number;
@@ -68,6 +116,77 @@ export function PracticePage() {
     } finally {
       setLoadingPrompts(false);
     }
+  };
+
+  const saveUploadEntry = (
+    data: Omit<SavedUpload, 'id' | 'practiced' | 'updatedAt'>,
+    options?: { existingId?: string; practiced?: boolean }
+  ) => {
+    const now = new Date().toISOString();
+    const practiced = options?.practiced ?? false;
+    let savedId = options?.existingId || '';
+
+    updateSavedUploads(prev => {
+      let found = false;
+      const updated = prev.map(item => {
+        const isMatch = options?.existingId
+          ? item.id === options.existingId
+          : item.title === data.title && item.category === data.category && item.taskType === data.taskType;
+
+        if (isMatch) {
+          found = true;
+          savedId = item.id;
+          return {
+            ...item,
+            ...data,
+            practiced: practiced || item.practiced,
+            updatedAt: now,
+          };
+        }
+        return item;
+      });
+
+      if (!found) {
+        savedId = options?.existingId || Date.now().toString();
+        return [
+          ...updated,
+          {
+            ...data,
+            id: savedId,
+            practiced,
+            updatedAt: now,
+          },
+        ];
+      }
+
+      return updated;
+    });
+
+    return savedId || options?.existingId || Date.now().toString();
+  };
+
+  const markUploadPracticed = (id: string) => {
+    updateSavedUploads(prev =>
+      prev.map(item =>
+        item.id === id ? { ...item, practiced: true, updatedAt: new Date().toISOString() } : item
+      )
+    );
+  };
+
+  const startPracticeFromSaved = (upload: SavedUpload) => {
+    setMode('custom');
+    setCustomText(upload.sampleEssay);
+    setUploadedImage(upload.fileUrl || '');
+    setCustomPrompt({
+      title: upload.title,
+      content: upload.content,
+      taskType: upload.taskType,
+      category: upload.category,
+    });
+    setShowFullText(false);
+    setActiveSavedUploadId(upload.id);
+    resetPractice();
+    containerRef.current?.focus();
   };
 
   const getRandomPrompt = () => {
@@ -123,6 +242,10 @@ export function PracticePage() {
 
             // Save results for authenticated users
             await savePracticeResults(finalStats, newInput);
+
+            if (activeSavedUploadId) {
+              markUploadPracticed(activeSavedUploadId);
+            }
 
             if (mode === 'custom') {
               // For custom mode, go to prompt input
@@ -318,33 +441,12 @@ export function PracticePage() {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const handleFileUpload = (data: {
-    sampleEssay: string;
-    title: string;
-    content: string;
-    taskType: 'task1' | 'task2';
-    category: string;
-    fileUrl?: string;
-  }) => {
-    setCustomText(data.sampleEssay);
-    setUploadedImage(data.fileUrl || '');
-    setCustomPrompt({
-      title: data.title,
-      content: data.content,
-      taskType: data.taskType,
-      category: data.category,
-    });
-    setMode('custom');
-    setShowUploadModal(false);
-    setShowFullText(false);
-    resetPractice();
-  };
-
   const switchToPresetMode = () => {
     setMode('preset');
     setCustomText('');
     setUploadedImage('');
     setCustomPrompt(null);
+    setActiveSavedUploadId(null);
     setShowFullText(false);
     resetPractice();
   };
@@ -413,7 +515,7 @@ export function PracticePage() {
               </button>
               {isAuthenticated ? (
                 <button
-                  onClick={() => setShowUploadModal(true)}
+                  onClick={() => navigate('/upload')}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
                     mode === 'custom'
                       ? 'bg-teal-600 text-white'
@@ -545,7 +647,7 @@ export function PracticePage() {
               <p className="text-xl text-slate-400 mb-6">Chọn chế độ luyện tập để bắt đầu</p>
               {isAuthenticated ? (
                 <Button
-                  onClick={() => setShowUploadModal(true)}
+                  onClick={() => navigate('/upload')}
                   className="bg-teal-600 hover:bg-teal-500 text-white px-6 py-3"
                 >
                   <Image className="w-4 h-4 mr-2" />
@@ -608,13 +710,6 @@ export function PracticePage() {
         </footer>
       )}
 
-      {/* Upload Modal */}
-      {showUploadModal && (
-        <FileUploadModal
-          onClose={() => setShowUploadModal(false)}
-          onUpload={handleFileUpload}
-        />
-      )}
     </div>
   );
 }
