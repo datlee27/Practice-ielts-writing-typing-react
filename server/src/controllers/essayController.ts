@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
-import { Essay } from '../models';
+import { Essay, Prompt } from '../models';
 import { AIScoringService } from '../services/aiScoringService';
 import { OCRService } from '../services/ocrService';
+import { FileProcessingService } from '../services/fileProcessingService';
 import { validationResult } from 'express-validator';
 import { AuthRequest } from '../middleware/auth';
 import multer from 'multer';
@@ -23,36 +24,50 @@ const upload = multer({
     fileSize: parseInt(process.env.MAX_FILE_SIZE || '10485760'),
   },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const allowedTypes = [
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/webp',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain',
+    ];
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Only JPEG, PNG, and WebP images are allowed'));
+      cb(new Error('Only images (JPG, PNG, WebP), PDF, DOC, DOCX, and TXT files are allowed'));
     }
   },
 });
 
 export class EssayController {
-  static uploadMiddleware = upload.single('image');
+  static uploadMiddleware = upload.single('file');
 
-  static async uploadEssayImage(req: AuthRequest, res: Response): Promise<void> {
+  static async uploadEssayFile(req: AuthRequest, res: Response): Promise<void> {
     try {
       if (!req.file) {
-        res.status(400).json({ message: 'No image file provided' });
+        res.status(400).json({ message: 'No file provided' });
         return;
       }
 
-      OCRService.validateImageFile(req.file);
-
-      const ocrResult = await OCRService.processUploadedImage(req.file.path);
+      const processingResult = await FileProcessingService.processFile(
+        req.file.path,
+        req.file.mimetype
+      );
 
       await OCRService.cleanupTempFile(req.file.path);
 
+      const isImage = req.file.mimetype.startsWith('image/');
+
       res.json({
-        message: 'Image processed successfully',
+        message: 'File processed successfully',
         data: {
-          extractedText: ocrResult.text,
-          imageUrl: `/uploads/${req.file.filename}`,
+          extractedText: processingResult.extractedText,
+          fileType: processingResult.fileType,
+          fileUrl: isImage ? `/uploads/${req.file.filename}` : undefined,
+          fileName: req.file.originalname,
         },
       });
     } catch (error) {
@@ -225,6 +240,114 @@ export class EssayController {
       });
 
       res.json({ data: stats });
+    } catch (error) {
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  }
+
+  static async saveUploadToDatabase(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        res.status(401).json({ message: 'Authentication required' });
+        return;
+      }
+
+      const {
+        title,
+        content,
+        sampleEssay,
+        taskType,
+        category,
+        difficulty = 'medium',
+        timeLimit = 40,
+        wordCount,
+        fileUrl,
+      } = req.body;
+
+      if (!title || !content || !sampleEssay || !taskType) {
+        res.status(400).json({ message: 'Missing required fields' });
+        return;
+      }
+
+      const computedWordCount = wordCount || sampleEssay.split(/\s+/).filter(Boolean).length;
+
+      const prompt = await Prompt.create({
+        title,
+        content,
+        sampleEssay,
+        taskType,
+        category,
+        difficulty,
+        wordCount: computedWordCount,
+        timeLimit,
+        isActive: true,
+      });
+
+      const essay = await Essay.create({
+        userId,
+        promptId: prompt.id,
+        prompt: content,
+        taskType,
+        essayText: sampleEssay,
+        uploadedImage: fileUrl,
+        wordCount: computedWordCount,
+        isScored: false,
+        practiced: false,
+        overallBand: 0,
+        taskResponseScore: 0,
+        coherenceScore: 0,
+        lexicalResourceScore: 0,
+        grammarScore: 0,
+      });
+
+      res.status(201).json({
+        message: 'Upload saved',
+        data: { prompt, essay },
+      });
+    } catch (error) {
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  }
+
+  static async getSavedUploads(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        res.status(401).json({ message: 'Authentication required' });
+        return;
+      }
+
+      const essays = await Essay.findAll({
+        where: { userId },
+        include: [{ model: Prompt, as: 'promptRef' }],
+        order: [['updatedAt', 'DESC']],
+      });
+
+      res.json({ data: essays });
+    } catch (error) {
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  }
+
+  static async markPracticed(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.id;
+      const { id } = req.params;
+      if (!userId) {
+        res.status(401).json({ message: 'Authentication required' });
+        return;
+      }
+
+      const essay = await Essay.findOne({ where: { id, userId } });
+      if (!essay) {
+        res.status(404).json({ message: 'Essay not found' });
+        return;
+      }
+
+      await essay.update({ practiced: true });
+
+      res.json({ message: 'Marked practiced', data: essay });
     } catch (error) {
       res.status(500).json({ message: 'Internal server error' });
     }

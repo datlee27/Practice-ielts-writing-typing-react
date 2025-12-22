@@ -10,13 +10,31 @@ router.post(
   '/upload',
   optionalAuth,
   EssayController.uploadMiddleware,
-  EssayController.uploadEssayImage
+  EssayController.uploadEssayFile
 );
 
 router.post(
   '/',
   optionalAuth,
   EssayController.submitEssay
+);
+
+router.post(
+  '/save-upload',
+  authenticateToken,
+  EssayController.saveUploadToDatabase
+);
+
+router.get(
+  '/saved',
+  authenticateToken,
+  EssayController.getSavedUploads
+);
+
+router.patch(
+  '/:id/practiced',
+  authenticateToken,
+  EssayController.markPracticed
 );
 
 router.post('/:essayId/score', authenticateToken, EssayController.scoreEssay);

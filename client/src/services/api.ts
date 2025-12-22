@@ -84,6 +84,7 @@ export interface Essay {
   id?: number;
   userId?: number;
   testId?: number;
+  promptId?: number;
   prompt: string;
   taskType: 'task1' | 'task2';
   essayText: string;
@@ -96,6 +97,7 @@ export interface Essay {
   grammarScore?: number;
   feedback?: string;
   isScored: boolean;
+  practiced?: boolean;
   scoredAt?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -104,6 +106,13 @@ export interface Essay {
 export interface OCRResult {
   extractedText: string;
   imageUrl: string;
+}
+
+export interface FileUploadResult {
+  extractedText: string;
+  fileType: 'image' | 'pdf' | 'doc' | 'docx' | 'txt';
+  fileUrl?: string;
+  fileName: string;
 }
 
 // Pagination
@@ -286,8 +295,48 @@ class ApiClient {
     return response.data.data;
   }
 
+  async uploadEssayFile(file: File): Promise<FileUploadResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await this.client.post<ApiResponse<FileUploadResult>>('/essays/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data.data;
+  }
+
   async submitEssay(essayData: Omit<Essay, 'id' | 'createdAt' | 'updatedAt'>): Promise<Essay> {
     const response = await this.client.post<ApiResponse<Essay>>('/essays', essayData);
+    return response.data.data;
+  }
+
+  async saveUploadAndCreatePrompt(payload: {
+    title: string;
+    content: string;
+    sampleEssay: string;
+    taskType: 'task1' | 'task2';
+    category?: string;
+    difficulty?: 'easy' | 'medium' | 'hard';
+    timeLimit?: number;
+    wordCount?: number;
+    fileUrl?: string;
+  }): Promise<{ prompt: any; essay: Essay }> {
+    const response = await this.client.post<ApiResponse<{ prompt: any; essay: Essay }>>(
+      '/essays/save-upload',
+      payload
+    );
+    return response.data.data;
+  }
+
+  async getSavedEssays(): Promise<Essay[]> {
+    const response = await this.client.get<ApiResponse<Essay[]>>('/essays/saved');
+    return response.data.data;
+  }
+
+  async markEssayPracticed(id: number): Promise<Essay> {
+    const response = await this.client.patch<ApiResponse<Essay>>(`/essays/${id}/practiced`);
     return response.data.data;
   }
 

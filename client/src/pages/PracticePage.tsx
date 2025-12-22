@@ -1,12 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useLocation } from 'react-router';
 import { RotateCcw, Upload, BookOpen, Image, Lock, RefreshCw } from 'lucide-react';
 import { VirtualKeyboard } from '../components/VirtualKeyboard';
 import { Button } from '../components/ui/button';
-import { ImageUploadModal } from '../components/ImageUploadModal';
 import { useAuth } from '../contexts/AuthContext';
-import apiClient from '../services/api';
+import apiClient, { Essay } from '../services/api';
 type PracticeMode = 'preset' | 'custom';
+type SavedUpload = Essay & {
+  promptRef?: {
+    title?: string;
+    content?: string;
+    sampleEssay?: string;
+    taskType?: 'task1' | 'task2';
+    category?: string;
+  };
+};
 
 export function PracticePage() {
   const navigate = useNavigate();
@@ -17,7 +25,6 @@ export function PracticePage() {
   const [currentTime, setCurrentTime] = useState(0);
   const [zenMode, setZenMode] = useState(false);
   const [lastPressedKey, setLastPressedKey] = useState<string>('');
-  const [showUploadModal, setShowUploadModal] = useState(false);
   const [customText, setCustomText] = useState('');
   const [uploadedImage, setUploadedImage] = useState<string>('');
   const [errors, setErrors] = useState<{ position: number; expected: string; actual: string }[]>([]);
@@ -26,13 +33,55 @@ export function PracticePage() {
   const [currentPrompt, setCurrentPrompt] = useState<any>(null);
   const [loadingPrompts, setLoadingPrompts] = useState(false);
   const [showFullText, setShowFullText] = useState(false);
+  const [customPrompt, setCustomPrompt] = useState<{
+    title: string;
+    content: string;
+    taskType: 'task1' | 'task2';
+    category: string;
+  } | null>(null);
+  const [savedUploads, setSavedUploads] = useState<SavedUpload[]>([]);
+  const [activeSavedUploadId, setActiveSavedUploadId] = useState<number | null>(null);
+  const [loadingSaved, setLoadingSaved] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
+  const hasAppliedNavigationState = useRef(false);
 
 
   const sampleText = mode === 'preset'
     ? (currentPrompt?.sampleEssay || "No sample essay available for this prompt. Please select another prompt or upload your own text.")
     : customText;
   const words = sampleText.split(' ').filter(w => w.length > 0);
+
+  const fetchSavedUploads = async () => {
+    if (!isAuthenticated) return;
+    try {
+      setLoadingSaved(true);
+      const data = await apiClient.getSavedEssays();
+      setSavedUploads(data as SavedUpload[]);
+    } catch (error) {
+      console.error('Failed to fetch saved uploads', error);
+    } finally {
+      setLoadingSaved(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSavedUploads();
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    const state = location.state as { savedUploadId?: string } | undefined;
+    if (hasAppliedNavigationState.current) return;
+    const savedId = state?.savedUploadId ? Number(state.savedUploadId) : undefined;
+    if (savedId && savedUploads.length > 0) {
+      const match = savedUploads.find(item => item.id === savedId);
+      if (match) {
+        startPracticeFromSaved(match);
+        hasAppliedNavigationState.current = true;
+        navigate('/practice', { replace: true });
+      }
+    }
+  }, [location.state, savedUploads, navigate]);
 
   useEffect(() => {
     let interval: number;
@@ -62,6 +111,32 @@ export function PracticePage() {
     } finally {
       setLoadingPrompts(false);
     }
+  };
+
+  const markUploadPracticed = async (id: number) => {
+    try {
+      await apiClient.markEssayPracticed(id);
+      fetchSavedUploads();
+    } catch (error) {
+      console.error('Failed to mark practiced', error);
+    }
+  };
+
+  const startPracticeFromSaved = (upload: SavedUpload) => {
+    setMode('custom');
+    const sampleEssay = upload.promptRef?.sampleEssay || upload.essayText || '';
+    setCustomText(sampleEssay);
+    setUploadedImage(upload.uploadedImage || '');
+    setCustomPrompt({
+      title: upload.promptRef?.title || 'Untitled',
+      content: upload.promptRef?.content || '',
+      taskType: (upload.promptRef?.taskType as 'task1' | 'task2') || upload.taskType,
+      category: upload.promptRef?.category || '',
+    });
+    setShowFullText(false);
+    setActiveSavedUploadId(upload.id || null);
+    resetPractice();
+    containerRef.current?.focus();
   };
 
   const getRandomPrompt = () => {
@@ -117,6 +192,10 @@ export function PracticePage() {
 
             // Save results for authenticated users
             await savePracticeResults(finalStats, newInput);
+
+            if (activeSavedUploadId) {
+              markUploadPracticed(activeSavedUploadId);
+            }
 
             if (mode === 'custom') {
               // For custom mode, go to prompt input
@@ -312,19 +391,12 @@ export function PracticePage() {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const handleImageUpload = (text: string, imageUrl: string) => {
-    setCustomText(text);
-    setUploadedImage(imageUrl);
-    setMode('custom');
-    setShowUploadModal(false);
-    setShowFullText(false);
-    resetPractice();
-  };
-
   const switchToPresetMode = () => {
     setMode('preset');
     setCustomText('');
     setUploadedImage('');
+    setCustomPrompt(null);
+    setActiveSavedUploadId(null);
     setShowFullText(false);
     resetPractice();
   };
@@ -393,7 +465,7 @@ export function PracticePage() {
               </button>
               {isAuthenticated ? (
                 <button
-                  onClick={() => setShowUploadModal(true)}
+                  onClick={() => navigate('/upload')}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
                     mode === 'custom'
                       ? 'bg-teal-600 text-white'
@@ -456,13 +528,25 @@ export function PracticePage() {
             )}
 
             {/* Custom mode info */}
-            {mode === 'custom' && customText && (
+            {mode === 'custom' && customText && customPrompt && (
               <div className="bg-teal-950/30 border border-teal-800 rounded-lg p-4">
                 <div className="flex items-start gap-3">
                   <Image className="w-5 h-5 text-teal-400 mt-0.5" />
                   <div className="flex-1">
-                    <p className="text-sm text-teal-300 mb-2">Đang luyện gõ theo bài làm của bạn</p>
-                    <p className="text-xs text-slate-400">Sau khi gõ xong, bạn sẽ cần nhập đề bài để AI chấm điểm</p>
+                    <p className="text-sm text-teal-300 mb-1 font-medium">{customPrompt.title}</p>
+                    <p className="text-xs text-slate-400 mb-2">{customPrompt.content}</p>
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                      <span
+                        className={`px-2 py-0.5 rounded ${
+                          customPrompt.taskType === 'task1'
+                            ? 'bg-blue-900/50 text-blue-300'
+                            : 'bg-purple-900/50 text-purple-300'
+                        }`}
+                      >
+                        {customPrompt.taskType === 'task1' ? 'Task 1' : 'Task 2'}
+                      </span>
+                      <span>{customPrompt.category}</span>
+                    </div>
                   </div>
                   {uploadedImage && (
                     <img src={uploadedImage} alt="Uploaded essay" className="w-20 h-20 object-cover rounded border border-slate-700" />
@@ -513,7 +597,7 @@ export function PracticePage() {
               <p className="text-xl text-slate-400 mb-6">Chọn chế độ luyện tập để bắt đầu</p>
               {isAuthenticated ? (
                 <Button
-                  onClick={() => setShowUploadModal(true)}
+                  onClick={() => navigate('/upload')}
                   className="bg-teal-600 hover:bg-teal-500 text-white px-6 py-3"
                 >
                   <Image className="w-4 h-4 mr-2" />
@@ -576,13 +660,6 @@ export function PracticePage() {
         </footer>
       )}
 
-      {/* Upload Modal */}
-      {showUploadModal && (
-        <ImageUploadModal
-          onClose={() => setShowUploadModal(false)}
-          onUpload={handleImageUpload}
-        />
-      )}
     </div>
   );
 }

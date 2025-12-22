@@ -6,6 +6,7 @@ export interface EssayAttributes {
   id: number;
   userId?: number;
   testId?: number;
+  promptId?: number;
   prompt: string;
   taskType: 'task1' | 'task2';
   essayText: string;
@@ -18,6 +19,7 @@ export interface EssayAttributes {
   grammarScore: number;
   feedback?: string;
   isScored: boolean;
+  practiced: boolean;
   scoredAt?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -31,6 +33,7 @@ class Essay extends Model<EssayAttributes, EssayCreationAttributes> implements E
   public id!: number;
   public userId?: number;
   public testId?: number;
+  public promptId?: number;
   public prompt!: string;
   public taskType!: 'task1' | 'task2';
   public essayText!: string;
@@ -43,6 +46,7 @@ class Essay extends Model<EssayAttributes, EssayCreationAttributes> implements E
   public grammarScore!: number;
   public feedback?: string;
   public isScored!: boolean;
+  public practiced!: boolean;
   public scoredAt?: Date;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -72,6 +76,10 @@ Essay.init(
     prompt: {
       type: DataTypes.TEXT,
       allowNull: false,
+    },
+    promptId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
     },
     taskType: {
       type: DataTypes.ENUM('task1', 'task2'),
@@ -120,6 +128,11 @@ Essay.init(
       allowNull: true,
     },
     isScored: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
+    practiced: {
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: false,
