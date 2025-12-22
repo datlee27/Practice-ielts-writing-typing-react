@@ -10,7 +10,7 @@ router.post(
   '/upload',
   optionalAuth,
   EssayController.uploadMiddleware,
-  EssayController.uploadEssayImage
+  EssayController.uploadEssayFile
 );
 
 router.post(

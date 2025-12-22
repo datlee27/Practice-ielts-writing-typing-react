@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { RotateCcw, Upload, BookOpen, Image, Lock, RefreshCw } from 'lucide-react';
 import { VirtualKeyboard } from '../components/VirtualKeyboard';
 import { Button } from '../components/ui/button';
-import { ImageUploadModal } from '../components/ImageUploadModal';
+import { FileUploadModal } from '../components/FileUploadModal';
 import { useAuth } from '../contexts/AuthContext';
 import apiClient from '../services/api';
 type PracticeMode = 'preset' | 'custom';
@@ -26,6 +26,12 @@ export function PracticePage() {
   const [currentPrompt, setCurrentPrompt] = useState<any>(null);
   const [loadingPrompts, setLoadingPrompts] = useState(false);
   const [showFullText, setShowFullText] = useState(false);
+  const [customPrompt, setCustomPrompt] = useState<{
+    title: string;
+    content: string;
+    taskType: 'task1' | 'task2';
+    category: string;
+  } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
 
@@ -312,9 +318,22 @@ export function PracticePage() {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const handleImageUpload = (text: string, imageUrl: string) => {
-    setCustomText(text);
-    setUploadedImage(imageUrl);
+  const handleFileUpload = (data: {
+    sampleEssay: string;
+    title: string;
+    content: string;
+    taskType: 'task1' | 'task2';
+    category: string;
+    fileUrl?: string;
+  }) => {
+    setCustomText(data.sampleEssay);
+    setUploadedImage(data.fileUrl || '');
+    setCustomPrompt({
+      title: data.title,
+      content: data.content,
+      taskType: data.taskType,
+      category: data.category,
+    });
     setMode('custom');
     setShowUploadModal(false);
     setShowFullText(false);
@@ -325,6 +344,7 @@ export function PracticePage() {
     setMode('preset');
     setCustomText('');
     setUploadedImage('');
+    setCustomPrompt(null);
     setShowFullText(false);
     resetPractice();
   };
@@ -456,13 +476,25 @@ export function PracticePage() {
             )}
 
             {/* Custom mode info */}
-            {mode === 'custom' && customText && (
+            {mode === 'custom' && customText && customPrompt && (
               <div className="bg-teal-950/30 border border-teal-800 rounded-lg p-4">
                 <div className="flex items-start gap-3">
                   <Image className="w-5 h-5 text-teal-400 mt-0.5" />
                   <div className="flex-1">
-                    <p className="text-sm text-teal-300 mb-2">Đang luyện gõ theo bài làm của bạn</p>
-                    <p className="text-xs text-slate-400">Sau khi gõ xong, bạn sẽ cần nhập đề bài để AI chấm điểm</p>
+                    <p className="text-sm text-teal-300 mb-1 font-medium">{customPrompt.title}</p>
+                    <p className="text-xs text-slate-400 mb-2">{customPrompt.content}</p>
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                      <span
+                        className={`px-2 py-0.5 rounded ${
+                          customPrompt.taskType === 'task1'
+                            ? 'bg-blue-900/50 text-blue-300'
+                            : 'bg-purple-900/50 text-purple-300'
+                        }`}
+                      >
+                        {customPrompt.taskType === 'task1' ? 'Task 1' : 'Task 2'}
+                      </span>
+                      <span>{customPrompt.category}</span>
+                    </div>
                   </div>
                   {uploadedImage && (
                     <img src={uploadedImage} alt="Uploaded essay" className="w-20 h-20 object-cover rounded border border-slate-700" />
@@ -578,9 +610,9 @@ export function PracticePage() {
 
       {/* Upload Modal */}
       {showUploadModal && (
-        <ImageUploadModal
+        <FileUploadModal
           onClose={() => setShowUploadModal(false)}
-          onUpload={handleImageUpload}
+          onUpload={handleFileUpload}
         />
       )}
     </div>
